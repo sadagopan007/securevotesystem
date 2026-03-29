@@ -3,27 +3,29 @@ import random
 import hashlib
 import time
 import os
+import csv
 
 app = Flask(__name__)
 
 # IMPORTANT: Fixed secret key so sessions never break on Render
 app.secret_key = os.environ.get("SECRET_KEY", "securevote-fixed-key-2024-xk9z")
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-app.config["SESSION_COOKIE_SECURE"]   = False  # set True only if HTTPS enforced
+app.config["SESSION_COOKIE_SECURE"]   = False
 
-# ── VOTER DATABASE ────────────────────────────────────────────────────
-VOTER_DATABASE = {
-    "VOTER001": "123456789012",
-    "VOTER002": "234567890123",
-    "VOTER003": "345678901234",
-    "VOTER004": "456789012345",
-    "VOTER005": "567890123456",
-    "VOTER006": "678901234567",
-    "VOTER007": "789012345678",
-    "VOTER008": "890123456789",
-    "VOTER009": "901234567890",
-    "VOTER010": "012345678901",
-}
+# ── LOAD VOTER DATABASE FROM CSV ──────────────────────────────────────
+def load_voters():
+    voters = {}
+    try:
+        with open("voters.csv", newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                voters[row["voter_id"].strip().upper()] = row["aadhaar"].strip()
+        print(f"✅ Loaded {len(voters)} voters from voters.csv")
+    except FileNotFoundError:
+        print("❌ voters.csv not found!")
+    return voters
+
+VOTER_DATABASE = load_voters()
 
 # ── IN-MEMORY STORAGE ─────────────────────────────────────────────────
 otp_storage    = {}
@@ -127,12 +129,10 @@ def verify_otp():
         return render_template("otp.html", voter_id=voter_id,
                                error="Wrong OTP. Try again.", otp_demo=record["otp"])
 
-    # ── OTP correct: store in session and go to vote ──
     session.clear()
     session["voter_id"]      = voter_id
     session["authenticated"] = True
     session.modified         = True
-
     return redirect(url_for("vote"))
 
 @app.route("/vote")
@@ -172,11 +172,10 @@ def cast_vote():
     vote_hash = generate_vote_hash(voter_id, candidate, timestamp)
     votes[voter_id] = {"candidate": candidate, "timestamp": timestamp, "hash": vote_hash}
 
-    session["vote_hash"] = vote_hash
-    session["voted_for"] = candidate
-    session["authenticated"] = False
-    session.modified = True
-
+    session["vote_hash"]      = vote_hash
+    session["voted_for"]      = candidate
+    session["authenticated"]  = False
+    session.modified          = True
     return redirect(url_for("success"))
 
 @app.route("/success")
