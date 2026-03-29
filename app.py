@@ -216,12 +216,14 @@ def api_results():
 
 @app.route("/reset")
 def reset():
-    votes.clear()
-    otp_storage.clear()
-    fraud_log.clear()
-    login_attempts.clear()
+    global votes, otp_storage, fraud_log, login_attempts
+    votes          = {}
+    otp_storage    = {}
+    fraud_log      = []
+    login_attempts = {}
     trust_score[0] = 100
     session.clear()
+    print("✅ All data reset successfully!")
     return redirect(url_for("admin"))
 
 @app.route("/database")
